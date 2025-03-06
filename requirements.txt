@@ -4,3 +4,4 @@ selenium
 Flask
 requests
 flask-cors
+python-dotenv==1.0.1

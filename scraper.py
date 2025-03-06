@@ -4,6 +4,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from dotenv import load_dotenv
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from flask import Flask, jsonify
 
@@ -17,6 +19,15 @@ password = os.getenv("PASSWORD")
 
 # Flask app setup
 app = Flask(__name__)
+
+def wait_for_element(driver, by, value, timeout=30, retries=3):
+    for _ in range(retries):
+        try:
+            return WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((by, value)))
+        except TimeoutException:
+            print(f"Retrying to find {value}...")
+            time.sleep(2)  # Short wait before retrying
+    return None
 
 def scrape_data():
     # Launch Chrome
@@ -36,6 +47,12 @@ def scrape_data():
 
     # Check if the login is successful by looking for an element only visible after login
     try:
+    
+	#wait
+        level_element = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "ts_level")))
+        days_to_quarter_element = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "ts_days_to_low")))
+        battery_element = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "ts_battery")))
+    
         # Scrape the required elements
         level = driver.find_element(By.CLASS_NAME, "ts_level").find_element(By.CLASS_NAME, "ts_col_val").text.split('/')[0].strip()
         days_to_quarter = driver.find_element(By.CLASS_NAME, "ts_days_to_low").find_element(By.CLASS_NAME, "ts_col_val").text.strip()
