@@ -4,6 +4,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from dotenv import load_dotenv
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from flask import Flask, jsonify
 
@@ -18,9 +20,33 @@ password = os.getenv("PASSWORD")
 # Flask app setup
 app = Flask(__name__)
 
+def wait_for_element(driver, by, value, timeout=30, retries=3):
+    for _ in range(retries):
+        try:
+            return WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((by, value)))
+        except TimeoutException:
+            print(f"Retrying to find {value}...")
+            time.sleep(2)  # Short wait before retrying
+    return None
+
 def scrape_data():
-    # Launch Chrome
-    driver = webdriver.Chrome()
+    # Create a unique directory for user data
+    user_data_dir = f"/tmp/chrome_user_data_{int(time.time())}"
+
+    # Ensure the directory exists
+    if not os.path.exists(user_data_dir):
+        os.makedirs(user_data_dir)
+
+    # Set Chrome options
+    chrome_options = Options()
+    chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
+
+    # Optional: You can add other options like disabling GPU or headless mode
+    chrome_options.add_argument("--headless")  # Run headless if you don't need a GUI
+    chrome_options.add_argument("--no-sandbox")  # For Docker environments
+
+    # Initialize the WebDriver with options
+    driver = webdriver.Chrome(options=chrome_options)
     driver.get(website_url)
 
     # Log in
@@ -32,10 +58,15 @@ def scrape_data():
 
     # Wait for the page to load (can adjust timing based on your page)
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "ts_days_to_low")))
-    time.sleep(5)
 
     # Check if the login is successful by looking for an element only visible after login
     try:
+
+	#wait
+        level_element = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "ts_level")))
+        days_to_quarter_element = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "ts_days_to_low")))
+        battery_element = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "ts_battery")))
+
         # Scrape the required elements
         level = driver.find_element(By.CLASS_NAME, "ts_level").find_element(By.CLASS_NAME, "ts_col_val").text.split('/')[0].strip()
         days_to_quarter = driver.find_element(By.CLASS_NAME, "ts_days_to_low").find_element(By.CLASS_NAME, "ts_col_val").text.strip()
