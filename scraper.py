@@ -5,6 +5,7 @@ from selenium.webdriver.common.by import By
 from dotenv import load_dotenv
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from flask import Flask, jsonify
@@ -49,10 +50,12 @@ def scrape_data():
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--enable-logging")
     chrome_options.add_argument("--v=1")
-    chrome_options.binary_location = "/usr/bin/chromium-browser"
-
+    #chrome_options.binary_location = "/usr/bin/chromium-browser"
+    service = Service('/usr/bin/chromedriver')
+    
     # Launch Chromium
-    driver = webdriver.Chrome(options=chrome_options)
+    #driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     driver.get(website_url)
 
     # Log in
