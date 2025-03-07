@@ -20,6 +20,16 @@ password = os.getenv("PASSWORD")
 # Flask app setup
 app = Flask(__name__)
 
+#disable Flask's logging
+import logging
+startup_log = logging.getLogger('werkzeug')
+startup_log.disabled = True  # Disable startup logs
+#log.setLevel(logging.ERROR)
+
+@app.before_request
+def enable_request_logging():
+    startup_log.disabled = False  # Re-enable logging for requests
+
 def wait_for_element(driver, by, value, timeout=30, retries=3):
     for _ in range(retries):
         try:
@@ -30,8 +40,19 @@ def wait_for_element(driver, by, value, timeout=30, retries=3):
     return None
 
 def scrape_data():
-    # Launch Chrome
-    driver = webdriver.Chrome()
+    # Set up Chromium options
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Run without GUI
+    chrome_options.add_argument("--start-maximized")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--enable-logging")
+    chrome_options.add_argument("--v=1")
+    chrome_options.binary_location = "/usr/bin/chromium-browser"
+
+    # Launch Chromium
+    driver = webdriver.Chrome(options=chrome_options)
     driver.get(website_url)
 
     # Log in
@@ -47,16 +68,14 @@ def scrape_data():
 
     # Check if the login is successful by looking for an element only visible after login
     try:
-    
-	#wait
         level_element = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "ts_level")))
         days_to_quarter_element = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "ts_days_to_low")))
         battery_element = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "ts_battery")))
-    
+
         # Scrape the required elements
-        level = driver.find_element(By.CLASS_NAME, "ts_level").find_element(By.CLASS_NAME, "ts_col_val").text.split('/')[0].strip()
-        days_to_quarter = driver.find_element(By.CLASS_NAME, "ts_days_to_low").find_element(By.CLASS_NAME, "ts_col_val").text.strip()
-        battery = driver.find_element(By.CLASS_NAME, "ts_battery").find_element(By.CLASS_NAME, "ts_col_val").text.strip()
+        level = level_element.find_element(By.CLASS_NAME, "ts_col_val").text.split('/')[0].strip()
+        days_to_quarter = days_to_quarter_element.find_element(By.CLASS_NAME, "ts_col_val").text.strip()
+        battery = battery_element.find_element(By.CLASS_NAME, "ts_col_val").text.strip()
     except Exception as e:
         driver.quit()
         return {"error": "Login failed or elements not found", "message": str(e)}
@@ -75,5 +94,7 @@ def get_data():
     return jsonify(data)
 
 if __name__ == '__main__':
-	app.run(debug=True, host='0.0.0.0', port=5000)
-
+    host = "0.0.0.0"
+    port = 5000
+    print(f"Web scraper API started. Listening on http://{host}:{port}")
+    app.run(debug=False, host=host, port=port)
