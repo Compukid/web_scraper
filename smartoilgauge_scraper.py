@@ -1,22 +1,25 @@
 import os
 import time
+import json
+from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from dotenv import load_dotenv
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from flask import Flask, jsonify
 
 # Load environment variables
-load_dotenv()
+dotenv_path = os.getenv('DOTENV_PATH', '.env')
+load_dotenv(dotenv_path)
 
 # Get credentials
 website_url = os.getenv("WEBSITE_URL")
 username = os.getenv("USER_NAME")
 password = os.getenv("PASSWORD")
+port = int(os.getenv("PORT", 5000))
+sleep = int(os.getenv("SLEEP", 5))
 
 # Flask app setup
 app = Flask(__name__)
@@ -25,22 +28,12 @@ app = Flask(__name__)
 import logging
 startup_log = logging.getLogger('werkzeug')
 startup_log.disabled = True  # Disable startup logs
-#log.setLevel(logging.ERROR)
 
 @app.before_request
 def enable_request_logging():
     startup_log.disabled = False  # Re-enable logging for requests
 
-def wait_for_element(driver, by, value, timeout=30, retries=3):
-    for _ in range(retries):
-        try:
-            return WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((by, value)))
-        except TimeoutException:
-            print(f"Retrying to find {value}...")
-            time.sleep(2)  # Short wait before retrying
-    return None
-
-def scrape_data():
+def scrape_smart_oil_gauge():
     # Set up Chromium options
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Run without GUI
@@ -50,24 +43,21 @@ def scrape_data():
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--enable-logging")
     chrome_options.add_argument("--v=1")
-    #chrome_options.binary_location = "/usr/bin/chromium-browser"
     service = Service('/usr/bin/chromedriver')
     
-    # Launch Chromium
-    #driver = webdriver.Chrome(options=chrome_options)
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+    # Access website
+    driver = webdriver.Chrome(service=service, options=chrome_options)    
     driver.get(website_url)
 
-    # Log in
+    # Login
     driver.find_element(By.NAME, "username").send_keys(username)
     password_field = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "inputPassword")))
     password_field.send_keys(password)
     login_button = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//button[@type='submit']")))
     login_button.click()
-
-    # Wait for the page to load (can adjust timing based on your page)
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "ts_days_to_low")))
-    time.sleep(5)
+    
+    # Wait for data to load
+    time.sleep(sleep)
 
     # Check if the login is successful by looking for an element only visible after login
     try:
@@ -79,25 +69,28 @@ def scrape_data():
         level = level_element.find_element(By.CLASS_NAME, "ts_col_val").text.split('/')[0].strip()
         days_to_quarter = days_to_quarter_element.find_element(By.CLASS_NAME, "ts_col_val").text.strip()
         battery = battery_element.find_element(By.CLASS_NAME, "ts_col_val").text.strip()
+        
+        scraped_data = {
+            "level": level,
+            "days_to_quarter": days_to_quarter,
+            "battery": battery
+        }
     except Exception as e:
         driver.quit()
         return {"error": "Login failed or elements not found", "message": str(e)}
 
     driver.quit()
-
-    return {
-        "Level": level,
-        "Days_to_Quarter": days_to_quarter,
-        "Battery": battery
-    }
+    return scraped_data
 
 @app.route('/data', methods=['GET'])
 def get_data():
-    data = scrape_data()
-    return jsonify(data)
+    try:
+        data = scrape_smart_oil_gauge()
+        return jsonify({"scrapped_data": data})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     host = "0.0.0.0"
-    port = 5000
-    print(f"Web scraper API started. Listening on http://{host}:{port}")
+    print(f"Smart Oil Gauge scraper running at http://{host}:{port}")
     app.run(debug=False, host=host, port=port)
