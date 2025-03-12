@@ -7,7 +7,8 @@ WORKDIR /app
 # Copy the necessary files into the container
 COPY smartoilgauge_scraper.py . 
 COPY requirements.txt .
-COPY sample1.env
+COPY sample1.env .
+
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
