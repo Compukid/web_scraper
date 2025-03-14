@@ -1,8 +1,8 @@
 # Web Scraper
 
-This project scrapes data from a specific URL although you can try another site. 
-the URL, Username and password are configurable, but in the first iteration the elements to scrape are hard coded at the moment and hope to fix it in the future.
-script creates a api on port 5000 that will trigger the scrap and be able to pull the data from. 
+This project was created with chatgpt. The python script scrapes data from a specific URL app.smartoilgauge.com. 
+The URL, Username and password are configurable with a .env file. The script creates an api on port 5000 that will trigger the scrap and be able to pull the data from. 
+This can be run directly on a linux computer or as a docker image --> [https://hub.docker.com/repository/docker/compukid/smartoilgauge-scraper/general](url)
 
 ## Setup
 
